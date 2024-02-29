@@ -1,2 +1,3 @@
 # CloudUploader
-A CLI tool for uploading files to amazon S3 buckets
+
+A CLI tool for uploading files or data to Amazon Aurora, DynamoDB,RDS AND S3 Buckets.
