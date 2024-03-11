@@ -1,8 +1,12 @@
 #!/bin/bash
 set -e
-storage_service=$1
+
+configFile=$1
 
 echo "Welcome to my simple cloud upload tool 😊, I hope you finding it very useful. 😁 Gracias!!!"
+
+ 
+aws_storage_service=("aurora" "dynamodb" "rds" "s3")
 
 isAuth() {
 
@@ -36,31 +40,91 @@ isAccess() {
     fi
 }
 
-aws_storage_service=("aurora" "dynamodb" "rds" "s3")
 
-checkStorageService() {
 
-    if [[ "${aws_storage_service[@]}" =~ "$storage_service" ]]; then
-        echo "This tool supports upload to ${storage_service}"
+processConfig() {
+
+    if [[ -z ${configFile} ]]; then
+        echo "Config file not found"
+        exit 1
     else
-        echo "This tool doesn't support upload operations for this AWS ${storage_service}"
+        bucketName=$(yq '.config.bucketName' ${configFile})
+        filePath=$(yq '.config.filePath' ${configFile})
+        fileName=$(yq '.config.fileName' ${configFile})
+        service=$(yq '.config.service' ${configFile})
+        bucketPath=$(yq '.config.bucketPath' ${configFile})
+        
+        if [ -z ${service} ] || [ -z ${filePath} ]  || [ -z ${fileName} ] || [ -z ${bucketName} ] || [ -z ${bucketPath} ] ; then
+            echo "Config fields are empty. Please populate Values"
+            exit 1
+        else 
+        
+            # echo ""
+            upload $service $bucketPath $filePath
+        fi
+
+    fi
+}
+
+
+upload() {
+   local service=$1
+   local bucket=$2
+   local file=$3
+
+     if [[ "${aws_storage_service[@]}" =~ "${service}" ]]; then
+        echo "This tool supports upload to ${service}"
+             
+        if [[ "$1" == "s3" ]]; then
+        echo "Uploading data to aws ${service} storage...."
+            uploadToS3 $bucket $file
+
+        else
+            echo "Cannot upload to any storage service at the moment";
+            exit 1
+        fi
+
+    else
+        echo "This tool doesn't support upload operations for this AWS ${service}"
         exit 1
     fi
 }
 
 uploadToS3() {
+    local bucket=$1
+    local file=$2
+        echo "Bucket name is  - ${bucket}...."
+        echo "**** uploading to S3 bucket - ${bucket} ****"
 
-    echo "Uploading data to aws ${storage_service} storage...."
+        # versionId=$(aws s3api put-object --bucket ${bucketName} --key ${fileName}  --body ${filePath} | jq '.VersionId')
+        result=$(aws s3 cp ${file}  s3://${bucket})
+        statusCode=$?
+    
+        if [[ "$statusCode" == 0 ]]; then
+            echo "${result}"
+            echo " File uploaded Successfully 😊"
+            exit 0
+        else
+            echo "${result}"
+            echo "File upload not Successful...."
+            exit 1
+        fi
 
-    S3_Buckets=$(aws s3 ls)
-
-    echo "Current S3 buckets ${S3_Buckets}"
 }
 
-isAuth
 
-isAccess
+main() {
 
-checkStorageService
+    isAuth
 
-uploadToS3
+    isAccess
+
+    processConfig
+
+    upload
+
+}
+
+
+main
+
