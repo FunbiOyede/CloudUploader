@@ -48,56 +48,57 @@ processConfig() {
         echo "Config file not found"
         exit 1
     else
-        bucketName=$(yq '.config.bucketName' ${configFile})
-        filePath=$(yq '.config.filePath' ${configFile})
-        fileName=$(yq '.config.fileName' ${configFile})
         service=$(yq '.config.service' ${configFile})
-        bucketPath=$(yq '.config.bucketPath' ${configFile})
-        
-        if [ -z ${service} ] || [ -z ${filePath} ]  || [ -z ${fileName} ] || [ -z ${bucketName} ] || [ -z ${bucketPath} ] ; then
-            echo "Config fields are empty. Please populate Values"
-            exit 1
-        else 
-        
-            # echo ""
-            upload $service $bucketPath $filePath
-        fi
 
+         if [ -z ${service} ]; then
+            echo "Service field is empty. Check config file"
+            exit 1
+        
+        else 
+            if [[ "${aws_storage_service[@]}" =~ "${service}" ]]; then
+                echo "This tool supports upload to ${service}"
+                upload $service
+            else
+                echo "This tool doesn't support upload operations for this AWS ${service}"
+                exit 1
+            fi
+        fi
     fi
 }
 
 
 upload() {
    local service=$1
-   local bucket=$2
-   local file=$3
-
-     if [[ "${aws_storage_service[@]}" =~ "${service}" ]]; then
-        echo "This tool supports upload to ${service}"
-             
-        if [[ "$1" == "s3" ]]; then
+     
+        if [[ $service == "s3" ]]; then
         echo "Uploading data to aws ${service} storage...."
-            uploadToS3 $bucket $file
+            uploadToS3
 
         else
             echo "Cannot upload to any storage service at the moment";
             exit 1
         fi
-
-    else
-        echo "This tool doesn't support upload operations for this AWS ${service}"
-        exit 1
-    fi
 }
 
 uploadToS3() {
-    local bucket=$1
-    local file=$2
+
+    file=$(yq '.config.filePath' ${configFile})
+    bucket=$(yq '.config.bucketPath' ${configFile})
+    isFolder=$(yq '.config.isFolder' ${configFile})
+     
+    if [ -z ${file} ] || [ -z ${bucket} || -z ${isFolder} ]; then
+        echo "Config fields are empty. Please populate Values"
+        exit 1
+    else 
         echo "Bucket name is  - ${bucket}...."
         echo "**** uploading to S3 bucket - ${bucket} ****"
-
-        # versionId=$(aws s3api put-object --bucket ${bucketName} --key ${fileName}  --body ${filePath} | jq '.VersionId')
-        result=$(aws s3 cp ${file}  s3://${bucket})
+        if [ ${isFolder} == true ]; then
+            echo "uploading folders...."
+            result=$(aws s3 sync ${file}  s3://${bucket})
+        else 
+            echo "Uploading file...."
+            result=$(aws s3 cp ${file}  s3://${bucket})
+        fi
         statusCode=$?
     
         if [[ "$statusCode" == 0 ]]; then
@@ -109,6 +110,7 @@ uploadToS3() {
             echo "File upload not Successful...."
             exit 1
         fi
+    fi
 
 }
 
