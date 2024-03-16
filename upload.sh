@@ -85,6 +85,10 @@ uploadToS3() {
     file=$(yq '.config.filePath' ${configFile})
     bucket=$(yq '.config.bucketPath' ${configFile})
     isFolder=$(yq '.config.isFolder' ${configFile})
+    generateLink=$(yq '.config.generateLink' ${configFile})
+    region=$(yq '.config.region' ${configFile})
+    buckeName=$(yq '.config.bucketName' ${configFile})
+    local isMultipleFiles= 
      
     if [ -z ${file} ] || [ -z ${bucket} || -z ${isFolder} ]; then
         echo "Config fields are empty. Please populate Values"
@@ -93,9 +97,11 @@ uploadToS3() {
         echo "Bucket name is  - ${bucket}...."
         echo "**** uploading to S3 bucket - ${bucket} ****"
         if [ ${isFolder} == true ]; then
+            isMultipleFiles=true
             echo "uploading folders...."
-            result=$(aws s3 sync ${file}  s3://${bucket})
+            result=$(aws s3 sync ${file}  s3://${bucket} )
         else 
+            isMultipleFiles=false
             echo "Uploading file...."
             result=$(aws s3 cp ${file}  s3://${bucket})
         fi
@@ -104,16 +110,43 @@ uploadToS3() {
         if [[ "$statusCode" == 0 ]]; then
             echo "${result}"
             echo " File uploaded Successfully 😊"
+            GeneratesShareLink $region $generateLink $isMultipleFiles $buckeName
             exit 0
         else
             echo "${result}"
             echo "File upload not Successful...."
+            GeneratesShareLink $region $generateLink $isMultipleFiles $buckeName
             exit 1
         fi
     fi
 
 }
 
+
+GeneratesShareLink() {
+   bucketRegion=$1
+   isGenerateLink=$2
+   isMultipleFiles=$3
+   bucketName=$4
+
+   if [[ ${isGenerateLink} == true ]]; then
+        if [[ ${isMultipleFiles} == true ]]; then
+            bucketLists=$(aws s3api list-objects --bucket ${bucketName} | jq -r '.Contents.[].Key')
+            for object in ${bucketLists}
+            do
+               generatedUrls=$(aws s3 presign s3://${bucketName}/${object} --expires-in 604800 --region ${bucketRegion})
+               urls=($generatedUrls)
+               echo ${urls}
+            done
+             echo "urls expires in a week"
+        else 
+            echo "I Love Jesus"
+        fi
+   else 
+        echo "why? no link?"
+        # continue;
+   fi
+}
 
 main() {
 
