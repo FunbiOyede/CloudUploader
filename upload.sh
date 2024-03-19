@@ -130,7 +130,7 @@ UploadMultipleFilesToS3() {
                 do
                 generatedUrls=$(aws s3 presign s3://${bucketName}/${object} --expires-in ${expiresIn} --region ${region})
                 urls=($generatedUrls)
-                echo ${urls}
+                echo "${urls},"
                 done
                 echo "urls expires in ${expiresIn} Seconds"
             exit 0
@@ -143,7 +143,7 @@ UploadMultipleFilesToS3() {
 }
 
 UploadSingleFile() {
-    
+
     local localFilePath=$1
     local localFileName=$2
     local bucketPath=$3
