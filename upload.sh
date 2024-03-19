@@ -80,73 +80,103 @@ upload() {
         fi
 }
 
+
+############################## Upload to S3 #######################################################
+
 uploadToS3() {
 
-    file=$(yq '.config.filePath' ${configFile})
-    bucket=$(yq '.config.bucketPath' ${configFile})
-    isFolder=$(yq '.config.isFolder' ${configFile})
-    generateLink=$(yq '.config.generateLink' ${configFile})
+
+    isMultipleFiles=$(yq '.config.isMultipleFiles' ${configFile})
+    localFilePath=$(yq '.config.localFilePath' ${configFile})
+    bucketPath=$(yq '.config.s3BucketPath' ${configFile})
+    bucketName=$(yq '.config.s3BucketName' ${configFile})
+    localFileName=$(yq '.config.fileName' ${configFile})
     region=$(yq '.config.region' ${configFile})
-    buckeName=$(yq '.config.bucketName' ${configFile})
-    local isMultipleFiles= 
-     
-    if [ -z ${file} ] || [ -z ${bucket} || -z ${isFolder} ]; then
-        echo "Config fields are empty. Please populate Values"
+    expiresIn=$(yq '.config.expiresIn' ${configFile})
+
+    if [ ${isMultipleFiles} == true ]; then
+        echo "uploading folders...."
+        UploadMultipleFilesToS3  ${localFilePath} ${bucketPath} ${bucketName} ${region} ${expiresIn} 
+    else 
+        echo "Uploading file...."
+        UploadSingleFile ${localFilePath} ${localFileName} ${bucketPath} ${region} ${expiresIn} 
+    fi
+}
+
+UploadMultipleFilesToS3() {
+
+    local localFilePath=$1
+    local bucketPath=$2
+    local bucketName=$3
+    local region=$4
+    local expiresIn=$5
+
+
+     if [ -z ${localFilePath} ] || [ -z ${bucketPath} ] || [ -z ${bucketName} ] || [ -z ${region} ] || [ -z ${expiresIn} ]; then
+        echo "Error: Config fields required to upload multiple files is empty. Please populate values"
         exit 1
     else 
-        echo "Bucket name is  - ${bucket}...."
-        echo "**** uploading to S3 bucket - ${bucket} ****"
-        if [ ${isFolder} == true ]; then
-            isMultipleFiles=true
-            echo "uploading folders...."
-            result=$(aws s3 sync ${file}  s3://${bucket} )
-        else 
-            isMultipleFiles=false
-            echo "Uploading file...."
-            result=$(aws s3 cp ${file}  s3://${bucket})
-        fi
-        statusCode=$?
+         echo "**** uploading to S3 bucket - ${bucketPath} ****"
+         result=$(aws s3 sync ${localFilePath}  s3://${bucketPath} )
+         statusCode=$?
     
-        if [[ "$statusCode" == 0 ]]; then
+        if [[ "$statusCode" -eq 0 ]]; then
             echo "${result}"
-            echo " File uploaded Successfully 😊"
-            GeneratesShareLink $region $generateLink $isMultipleFiles $buckeName
+            echo " Multiple file uploaded Successfully 😊"
+            echo "Generating Shareable links"
+
+            bucketLists=$(aws s3api list-objects --bucket ${bucketName} | jq -r '.Contents.[].Key')
+                for object in ${bucketLists}
+                do
+                generatedUrls=$(aws s3 presign s3://${bucketName}/${object} --expires-in ${expiresIn} --region ${region})
+                urls=($generatedUrls)
+                echo ${urls}
+                done
+                echo "urls expires in ${expiresIn} Seconds"
             exit 0
         else
             echo "${result}"
-            echo "File upload not Successful...."
-            GeneratesShareLink $region $generateLink $isMultipleFiles $buckeName
+            echo "Error: Multiple File upload not Successful...."
             exit 1
         fi
     fi
-
 }
 
+UploadSingleFile() {
+    
+    local localFilePath=$1
+    local localFileName=$2
+    local bucketPath=$3
+    local region=$4
+    local expiresIn=$5
 
-GeneratesShareLink() {
-   bucketRegion=$1
-   isGenerateLink=$2
-   isMultipleFiles=$3
-   bucketName=$4
+    if [ -z ${localFilePath} ] || [ -z ${bucketPath} ]; then
+        echo "Error: Config fields required to upload single file is empty. Please populate values"
+        exit 1
+    else 
+        result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
+        statusCode=$?
+         if [[ "$statusCode" -eq 0 ]]; then
+            echo "${result}"
+            echo " file uploaded Successfully 😊"
+            echo "Generating Shareable link...."
 
-   if [[ ${isGenerateLink} == true ]]; then
-        if [[ ${isMultipleFiles} == true ]]; then
-            bucketLists=$(aws s3api list-objects --bucket ${bucketName} | jq -r '.Contents.[].Key')
-            for object in ${bucketLists}
-            do
-               generatedUrls=$(aws s3 presign s3://${bucketName}/${object} --expires-in 604800 --region ${bucketRegion})
-               urls=($generatedUrls)
-               echo ${urls}
-            done
-             echo "urls expires in a week"
-        else 
-            echo "I Love Jesus"
+            generatedUrls=$(aws s3 presign s3://${bucketPath}${localFileName} --expires-in ${expiresIn} --region ${region})
+            urls=($generatedUrls)
+            echo ${urls}
+            echo "urls expires in ${expiresIn} Seconds"
+            exit 0
+        else
+            echo "${result}"
+            echo "Error: Single File upload not Successful...."
+            exit 1
         fi
-   else 
-        echo "why? no link?"
-        # continue;
-   fi
+    fi
 }
+
+
+
+############################## Upload to DynaMoDB #######################################################
 
 main() {
 
