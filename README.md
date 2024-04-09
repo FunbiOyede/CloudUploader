@@ -11,6 +11,12 @@ A CLI tool for uploading files or data to Amazon Aurora, DynamoDB,RDS AND S3 Buc
 ### How to use
 
 
+
+
+### Todo
+
+1. Documentation
+2. Distribution
    
 
    
