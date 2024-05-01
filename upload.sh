@@ -89,7 +89,7 @@ uploadToS3() {
 
     isMultipleFiles=$(yq '.config.isMultipleFiles' ${configFile})
     localFilePath=$(yq '.config.localFilePath' ${configFile})
-    bucketPath=$(yq '.config.s3BucketPath' ${configFile})
+    bucket=$(yq '.config.bucket' ${configFile})
     bucketName=$(yq '.config.s3BucketName' ${configFile})
     localFileName=$(yq '.config.fileName' ${configFile})
     region=$(yq '.config.region' ${configFile})
@@ -97,10 +97,10 @@ uploadToS3() {
 
     if [ ${isMultipleFiles} == true ]; then
         echo "uploading folders...."
-        UploadMultipleFilesToS3  ${localFilePath} ${bucketPath} ${bucketName} ${region} ${expiresIn} 
+        UploadMultipleFilesToS3  ${localFilePath} ${bucket} ${bucketName} ${region} ${expiresIn} 
     else 
         echo "Uploading Single file...."
-        UploadSingleFile ${localFilePath} ${localFileName} ${bucketPath} ${region} ${expiresIn} ${bucketName}
+        UploadSingleFile ${localFilePath} ${localFileName} ${bucket} ${region} ${expiresIn}
     fi
 }
 
@@ -149,23 +149,22 @@ UploadSingleFile() {
 
     local localFilePath=$1
     local localFileName=$2
-    local bucketPath=$3
+    local bucket=$3
     local region=$4
     local expiresIn=$5
-    local bucketName=$6
 
-    if [ -z ${localFilePath} ] || [ -z ${bucketPath} ]; then
+    if [ -z ${localFilePath} ] || [ -z ${bucket} ]; then
         echo "Error: Config fields required to upload single file is empty. Please populate values"
         exit 1
     else 
-        result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
+        result=$(aws s3 cp ${localFilePath}  s3://${bucket})
         statusCode=$?
         if [[ "$statusCode" -eq 0 ]]; then
             echo "${result}"
             echo " file uploaded Successfully 😊"
             echo "Generating Shareable link...."
 
-            generatedUrls=$(aws s3 presign s3://${bucketPath}${localFileName} --expires-in ${expiresIn} --region ${region})
+            generatedUrls=$(aws s3 presign s3://${bucket}${localFileName} --expires-in ${expiresIn} --region ${region})
             urls=($generatedUrls)
             echo ${urls}
             echo "urls expires in ${expiresIn} Seconds"
