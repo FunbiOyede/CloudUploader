@@ -145,49 +145,6 @@ UploadMultipleFilesToS3() {
 
 
 
-checkFileExistInBucket() {
-
-    local fileName=$1
-    local bucketName=$2
-    local bucketPath=$3
-    local localFilePath=$4
-    local result=
-
-    ObjectList=$(aws s3api list-objects --bucket ${bucketName})
-    
-    if [[ -n ${ObjectList} ]]; then
-
-        objectKey=$(aws s3api list-objects --bucket ${bucketName} | jq -r '.Contents.[].Key')
-        echo "This is object key ${objectKey} and file name ${fileName}"
-
-        if [[ $objectKey = *${fileName}* ]]; then
-            echo "File already exist in the bucket, Reply o to overwite or s to skip" 
-            read os
-            if [[ $os == "r" ]]; then
-                echo "Renaming...."
-                # Delete file 
-                aws s3 rm s3://${bucketPath}/${fileName}
-                #Upload again 
-                result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
-            elif [[ $os == "s" ]]; then
-                echo "Skipping...."
-                result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
-            else
-                exit 1
-            fi
-        else
-            result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
-        fi
-
-       
-    else
-        echo "S3 bucket is empty, creating new file"
-        result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
-    fi
-
-}
-
-
 UploadSingleFile() {
 
     local localFilePath=$1
@@ -202,7 +159,6 @@ UploadSingleFile() {
         exit 1
     else 
         result=$(aws s3 cp ${localFilePath}  s3://${bucketPath})
-        # result=$(checkFileExistInBucket $localFileName $bucketName $bucketPath $localFilePath)
         statusCode=$?
         if [[ "$statusCode" -eq 0 ]]; then
             echo "${result}"
