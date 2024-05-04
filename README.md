@@ -49,7 +49,7 @@ config:
     bucket: <s3 Bucket Name>
     isMultipleFiles: <Set to false when uploading multiple files>
 ```
-#### Example Of Configuration Files for Multiple File Upload
+#### Example Of Configuration Files for single File Upload
 
 ```
 config:
