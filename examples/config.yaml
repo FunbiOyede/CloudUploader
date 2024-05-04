@@ -1,0 +1,19 @@
+
+# Config for Mutiples files 
+# config:
+#     service: s3
+#     localFilePath: 
+#     bucket: 
+#     isMultipleFiles: true
+
+
+
+
+
+# Config for Single file
+# config:
+#     service: s3
+#     localFilePath: 
+#     fileName: 
+#     bucket: 
+#     isMultipleFiles: false
